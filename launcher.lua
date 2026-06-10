@@ -9,6 +9,16 @@ local extraApps = {
   "/System/Library/CoreServices/Finder.app",
 }
 
+-- Aliases — type the alias on the left to find the app on the right.
+-- Each alias becomes its own searchable entry pointing at the real app's path,
+-- so the real app still shows up too (alias is additive, not a rename).
+local aliases = {
+  vscode = "Visual Studio Code",
+  -- idea = "IntelliJ IDEA",
+  -- chrome = "Google Chrome",
+  -- ff = "Firefox",
+}
+
 local function appList()
   local apps = {}
   local seen = {}
@@ -53,11 +63,31 @@ local function appList()
       end
     end
   end
+  -- Inject aliases as additional searchable entries pointing at the real apps.
+  -- Original entry stays in the list — the alias is additive.
+  local byName = {}
+  for _, app in ipairs(apps) do byName[app.text] = app end
+  for alias, target in pairs(aliases) do
+    local app = byName[target]
+    if app then
+      table.insert(apps, {
+        text = alias,
+        subText = "→ " .. app.text,
+        path = app.path,
+        image = app.image,
+      })
+    end
+  end
   table.sort(apps, function(a, b) return a.text:lower() < b.text:lower() end)
   return apps
 end
 
-local chooser = hs.chooser.new(function(choice)
+-- Forward-declare so the closure below captures THIS local `chooser`, not the
+-- global (nil). Without this, `chooser:query()` inside the callback errors with
+-- "attempt to index a nil value (global 'chooser')" — classic Lua gotcha: the
+-- right-hand side of a `local x = ...` runs before `x` itself is in scope.
+local chooser
+chooser = hs.chooser.new(function(choice)
   if choice then
     hs.application.launchOrFocus(choice.path)
     return
